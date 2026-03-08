@@ -56,6 +56,9 @@ public class HoodSubsystem extends SubsystemBase {
         leftServo.set(clampedPosition);
         rightServo.set(clampedPosition);
         targetPosition = clampedPosition;
+
+        SmartDashboard.putData(this);
+
     }
 
     /** Expects a position between 0.0 and 1.0 */
@@ -78,12 +81,11 @@ public class HoodSubsystem extends SubsystemBase {
             return;
         }
 
-        
         final Distance maxDistanceTraveled = kMaxServoSpeed.times(elapsedTime);
         final double maxPercentageTraveled = maxDistanceTraveled.div(kServoLength).in(Value);
         currentPosition = targetPosition > currentPosition
-            ? Math.min(targetPosition, currentPosition + maxPercentageTraveled)
-            : Math.max(targetPosition, currentPosition - maxPercentageTraveled);
+                ? Math.min(targetPosition, currentPosition + maxPercentageTraveled)
+                : Math.max(targetPosition, currentPosition - maxPercentageTraveled);
     }
 
     @Override

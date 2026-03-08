@@ -11,6 +11,7 @@ import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 
 import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -38,6 +39,9 @@ public class FeederSubsystem extends SubsystemBase {
   public FeederSubsystem() {
     SparkBaseConfig config = new SparkMaxConfig();
     motor.configure(config.inverted(false), ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+    SmartDashboard.putData(this);
+
   }
 
   public void set(Speed speed) {
@@ -53,9 +57,9 @@ public class FeederSubsystem extends SubsystemBase {
   }
 
   @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-    SmartDashboard.putString("Command", getCurrentCommand() != null ? getCurrentCommand().getName() : "null");
-    SmartDashboard.putNumber("Supply Current", motor.getOutputCurrent());
+  public void initSendable(SendableBuilder builder) {
+    builder.addStringProperty("Command", () -> getCurrentCommand() != null ? getCurrentCommand().getName() : "null",
+        null);
+    builder.addDoubleProperty("Supply Current", () -> motor.getOutputCurrent(), null);
   }
 }
