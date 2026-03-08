@@ -28,6 +28,9 @@ public class HoodSubsystem extends SubsystemBase {
     private double currentPosition = 0.5;
     private double targetPosition = 0.5;
 
+    private static final Distance kServoLength = Millimeters.of(100);
+    private static final LinearVelocity kMaxServoSpeed = Millimeters.of(20).per(Second);
+
     // servos
     private final Servo leftServo;
     private final Servo rightServo;
@@ -75,7 +78,12 @@ public class HoodSubsystem extends SubsystemBase {
             return;
         }
 
-        // figure out how to update current position
+        
+        final Distance maxDistanceTraveled = kMaxServoSpeed.times(elapsedTime);
+        final double maxPercentageTraveled = maxDistanceTraveled.div(kServoLength).in(Value);
+        currentPosition = targetPosition > currentPosition
+            ? Math.min(targetPosition, currentPosition + maxPercentageTraveled)
+            : Math.max(targetPosition, currentPosition - maxPercentageTraveled);
     }
 
     @Override

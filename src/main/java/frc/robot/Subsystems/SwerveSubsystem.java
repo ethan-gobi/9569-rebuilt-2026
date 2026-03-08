@@ -7,9 +7,12 @@ package frc.robot.Subsystems;
 import static edu.wpi.first.units.Units.Meter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 import org.photonvision.PhotonCamera;
 import org.photonvision.targeting.PhotonPipelineResult;
@@ -20,16 +23,22 @@ import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.util.DriveFeedforwards;
+import com.pathplanner.lib.util.swerve.SwerveSetpoint;
+import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.util.struct.parser.ParseException;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
@@ -143,21 +152,21 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   // implement cameras later when vision is implemented
-  public Command aimAtTarget(Cameras camera) {
+  // public Command aimAtTarget(Cameras camera) {
 
-    return run(() -> {
-      Optional<PhotonPipelineResult> resultO = camera.getBestResult();
-      if (resultO.isPresent()) {
-        var result = resultO.get();
-        if (result.hasTargets()) {
-          drive(getTargetSpeeds(0,
-              0,
-              Rotation2d.fromDegrees(result.getBestTarget()
-                  .getYaw()))); // Not sure if this will work, more math may be required.
-        }
-      }
-    });
-  }
+  // return run(() -> {
+  // Optional<PhotonPipelineResult> resultO = camera.getBestResult();
+  // if (resultO.isPresent()) {
+  // var result = resultO.get();
+  // if (result.hasTargets()) {
+  // drive(getTargetSpeeds(0,
+  // 0,
+  // Rotation2d.fromDegrees(result.getBestTarget()
+  // .getYaw()))); // Not sure if this will work, more math may be required.
+  // }
+  // }
+  // });
+  // }
 
   public void drive(ChassisSpeeds velocity) {
     swerveDrive.drive(velocity);
@@ -224,8 +233,67 @@ public class SwerveSubsystem extends SubsystemBase {
     });
   }
 
+  public Command driveFieldOriented(Supplier<ChassisSpeeds> velocity) {
+    return run(() -> {
+      swerveDrive.driveFieldOriented(velocity.get());
+    });
+  }
+
+  private Command driveWithSetpointGenerator(Supplier<ChassisSpeeds> robotRelativeChassisSpeed)
+      throws IOException, ParseException, org.json.simple.parser.ParseException {
+    SwerveSetpointGenerator setpointGenerator = new SwerveSetpointGenerator(RobotConfig.fromGUISettings(),
+        swerveDrive.getMaximumChassisAngularVelocity());
+    AtomicReference<SwerveSetpoint> prevSetpoint = new AtomicReference<>(
+        new SwerveSetpoint(swerveDrive.getRobotVelocity(),
+            swerveDrive.getStates(),
+            DriveFeedforwards.zeros(swerveDrive.getModules().length)));
+    AtomicReference<Double> previousTime = new AtomicReference<>();
+
+    return startRun(() -> previousTime.set(Timer.getFPGATimestamp()),
+        () -> {
+          double newTime = Timer.getFPGATimestamp();
+          SwerveSetpoint newSetpoint = setpointGenerator.generateSetpoint(prevSetpoint.get(),
+              robotRelativeChassisSpeed.get(),
+              newTime - previousTime.get());
+          swerveDrive.drive(newSetpoint.robotRelativeSpeeds(),
+              newSetpoint.moduleStates(),
+              newSetpoint.feedforwards().linearForces());
+          prevSetpoint.set(newSetpoint);
+          previousTime.set(newTime);
+
+        });
+  }
+
+  public Command driveWithSetpointGeneratorFieldRelative(Supplier<ChassisSpeeds> fieldRelativeSpeeds) {
+    try {
+      return driveWithSetpointGenerator(() -> {
+        return ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds.get(), getHeading());
+
+      });
+    } catch (Exception e) {
+      DriverStation.reportError(e.toString(), true);
+    }
+    return Commands.none();
+
+  }
+
+  public SwerveDrive getSwerveDrive() {
+    return swerveDrive;
+  }
+
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
+    // if (visionPoseOptR.isPresent()) {
+    // swerveDrive.addVisionMeasurement(visionPoseOptR.get(), timestampOptR.get());
+    // photonfield2d.setRobotPose(visionPoseOptR.get());
+    // isTherePhotonR = true;
+    // // SmartDashboard.putNumber("photon Robot X", visionPoseOpt.get().getX());
+    // // SmartDashboard.putNumber("photon Robot Y", visionPoseOpt.get().getY());
+    // // SmartDashboard.putNumber("photon Robot Heading
+    // // (deg)",visionPoseOpt.get().getRotation().getDegrees());
+    // } else {
+    // isTherePhotonR = false;
+    // }
   }
 }

@@ -5,7 +5,6 @@
 package frc.robot.Subsystems;
 
 import static edu.wpi.first.units.Units.Volts;
-import static edu.wpi.first.units.Units.RPM;
 
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.PersistMode;
@@ -18,7 +17,6 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
-import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -39,11 +37,11 @@ public class ShooterSubsystem extends SubsystemBase {
   private final RelativeEncoder rightEncoder = leftShooterMotor.getEncoder();
 
   // pidf
-  private final SimpleMotorFeedforward feedForward = new SimpleMotorFeedforward(0, 0, 0); // to tune
-  private final PIDController motorController = new PIDController(0, 0, 0); // to tune
+  private final SimpleMotorFeedforward feedForward = new SimpleMotorFeedforward(0, 0.19, 0.58); // to tune
+  private final PIDController controller = new PIDController(0, 0, 0); // to tune
 
   private static final double kVelocityTolerance = 0.1; // if current RPM is within desired RPM +- velocity tolerance,
-                                                       // then its within tolerance
+                                                        // then its within tolerance
   private double targetRPM = 0; // desired RPM we want the wheels to turn at, to tune (?)
 
   /** Creates a new ShooterSubsystem. */
@@ -53,6 +51,8 @@ public class ShooterSubsystem extends SubsystemBase {
     middleShooterMotor.configure(config.inverted(false), ResetMode.kResetSafeParameters,
         PersistMode.kPersistParameters);
     rightShooterMotor.configure(config.inverted(false), ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+    SmartDashboard.putData(this);
   }
 
   public void setVoltage(Voltage voltage) {
@@ -61,24 +61,35 @@ public class ShooterSubsystem extends SubsystemBase {
     rightShooterMotor.setVoltage(voltage);
   }
 
-  public void updateCurrentSpeed(double rpm, RelativeEncoder encoder, SparkMax motor) {
-    double spins = motorController.calculate(encoder.getVelocity(), rpm);
-    motor.setVoltage(spins * motor.getBusVoltage());
+  public void updateCurrentSpeedOfMotor(RelativeEncoder encoder, SparkMax motor) {
+    double pidVoltage = controller.calculate(encoder.getVelocity(), targetRPM) * motor.getBusVoltage();
+    motor.setVoltage(feedForward.calculate(targetRPM) + pidVoltage);
 
+  }
+
+  public void updateCurrentSpeed() {
+    updateCurrentSpeedOfMotor(leftEncoder, leftShooterMotor);
+    updateCurrentSpeedOfMotor(middleEncoder, middleShooterMotor);
+    updateCurrentSpeedOfMotor(rightEncoder, rightShooterMotor);
+  }
+
+  public void set(double rpm) {
+    targetRPM = rpm;
   }
 
   public boolean isVelocityWithinTolerance(RelativeEncoder encoder) {
     double currentRPM = encoder.getVelocity();
-    return MathUtil.isNear(targetRPM, currentRPM, velocityTolerance); // checks if the current RPM is within desired RPM
+    return MathUtil.isNear(targetRPM, currentRPM, kVelocityTolerance); // checks if the current RPM is within desired
+                                                                       // RPM
   }
 
-  public Command runCommand() {
-    return startEnd(() -> setVoltage(Speed.RUN), () -> setVoltage(Speed.STOP));
+  public Command runCommand(Voltage voltage) {
+    return startEnd(() -> setVoltage(voltage), () -> setVoltage(Volts.of(0)));
   }
 
   @Override
   public void periodic() {
-
+    updateCurrentSpeed();
   }
 
   @Override
