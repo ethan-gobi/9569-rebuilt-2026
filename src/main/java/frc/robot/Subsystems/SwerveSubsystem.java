@@ -14,9 +14,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
-import org.photonvision.PhotonCamera;
-import org.photonvision.targeting.PhotonPipelineResult;
-
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathfindingCommand;
 import com.pathplanner.lib.config.PIDConstants;
@@ -27,10 +24,7 @@ import com.pathplanner.lib.util.DriveFeedforwards;
 import com.pathplanner.lib.util.swerve.SwerveSetpoint;
 import com.pathplanner.lib.util.swerve.SwerveSetpointGenerator;
 
-import frc.robot.Constants;
-import frc.robot.Constants.SwerveConstants;
 import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -49,24 +43,25 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.SwerveConstants;
 import swervelib.SwerveDrive;
 import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveParser;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 
 public class SwerveSubsystem extends SubsystemBase {
 
   // Swerve drive object
   private final SwerveDrive swerveDrive;
-
+  private final Vision vision;
   // PhotonVision class for full field localization
   // private Vision vision;
-
+  
   private final Field2d field = new Field2d();
 
   /** Creates a new SwerveSubsystem. */
   public SwerveSubsystem() {
+    vision = new Vision(this::addVisionMeasurement);
 
     boolean blueAlliance = DriverStation.getAlliance().isPresent()
         && DriverStation.getAlliance().get() == Alliance.Blue;
@@ -177,6 +172,10 @@ public class SwerveSubsystem extends SubsystemBase {
   // });
   // }
 
+  public Optional<Double> getYawToTag(int tagId) {
+    return vision.getYawToTag(tagId);
+  }
+
   public void drive(ChassisSpeeds velocity) {
     swerveDrive.drive(velocity);
   }
@@ -242,6 +241,7 @@ public class SwerveSubsystem extends SubsystemBase {
     });
   }
 
+
   public Command driveFieldOriented(Supplier<ChassisSpeeds> velocity) {
     return run(() -> {
       swerveDrive.driveFieldOriented(velocity.get());
@@ -300,6 +300,7 @@ public class SwerveSubsystem extends SubsystemBase {
     swerveDrive.addVisionMeasurement(visionMeasurement, timestampSeconds, stdDevs);
   }
 
+
   @Override
   public void initSendable(SendableBuilder sendableBuilder) {
     sendableBuilder.addStringProperty("Command",
@@ -318,4 +319,5 @@ public class SwerveSubsystem extends SubsystemBase {
     sendableBuilder.addDoubleProperty("Robot Y", () -> currentPose.getTranslation().getY(), null);
     sendableBuilder.addDoubleProperty("Robot Heading (deg)", () -> currentPose.getRotation().getDegrees(), null);
   }
+
 }
