@@ -18,6 +18,7 @@ import org.photonvision.PhotonUtils;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 
+
 import frc.robot.Robot;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
@@ -122,6 +123,25 @@ public class Vision extends SubsystemBase {
     return targets;
   }
 
+  public Optional<Double> getYawToTag(int tagId) {
+
+    for (PhotonTrackedTarget target : updateResults(cameraR)) {
+        if (target.getFiducialId() == tagId) {
+            return Optional.of(target.getYaw());
+        }
+    }
+
+    for (PhotonTrackedTarget target : updateResults(cameraL)) {
+        if (target.getFiducialId() == tagId) {
+            return Optional.of(target.getYaw());
+        }
+    }
+
+    return Optional.empty();
+}
+
+
+
   private Optional<EstimatedRobotPose> processCamera(PhotonCamera camera, PhotonPoseEstimator photonEstimator, Matrix<N3, N1> curStdDevs) {
     Optional<EstimatedRobotPose> estimatedPose = Optional.empty();
     for (var result : camera.getAllUnreadResults()) {
@@ -148,6 +168,7 @@ public class Vision extends SubsystemBase {
       consumer.accept(visionEstL.get().estimatedPose.toPose2d(), visionEstL.get().timestampSeconds, curStdDevsL);
     }
   }
+
 
   private void updateEstimationStdDevs(
       Optional<EstimatedRobotPose> estimatedPose, List<PhotonTrackedTarget> targets, PhotonPoseEstimator estimator,
@@ -197,6 +218,8 @@ public class Vision extends SubsystemBase {
           estStdDevs = estStdDevs.times(1 + (avgDist * avgDist / 30));
 
         curStdDevs = estStdDevs;
+
+
       }
     }
   }
